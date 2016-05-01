@@ -20,6 +20,8 @@ After first build html assets can be copied there (needed only first time)
 
 `cp index.html client.css dist/build/LambdaCalculus/LambdaCalculus.jsexe/`
 
-Now you can point the browser on `///home/<user>/<path-to-this-repository>/dist/build/LambdaCalculus/LambdaCalculus.jsexe`
+Now you can use it with the browser
+
+`firefox ``pwd``/dist/build/LambdaCalculus/LambdaCalculus.jsexe/index.html`
 
 
