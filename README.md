@@ -22,6 +22,6 @@ After first build html assets can be copied there (needed only first time)
 
 Now you can use it with the browser
 
-`firefox ``pwd``/dist/build/LambdaCalculus/LambdaCalculus.jsexe/index.html`
+    firefox `pwd`/dist/build/LambdaCalculus/LambdaCalculus.jsexe/index.html
 
 
