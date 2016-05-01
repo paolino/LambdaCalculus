@@ -2,7 +2,7 @@
 
 A library for lambda calculus with browser client
 
-Try it: [instance](http://lambdasistemi.net/public/ghcjs/Lambda/)
+Try it: [instance](http://lambdasistemi.net/public/ghcjs/LambdaCalculus/)
 
 # Compilation to Javascript
 
