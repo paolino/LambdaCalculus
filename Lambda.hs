@@ -77,8 +77,8 @@ reduction :: Eq a => Expr a -> Freshes a (Expr a)
 reduction v@(T x) = return v -- reduction branch over
 reduction (x :\ t) = (\.) x <$> reduction t -- lambda through
 -- reduction ((x :\ t) :# y) = application x t y >>= reduction -- aggressive
--- reduction ((x :\ t) :# y) = reduction y >>= application x -- mild
-reduction ((x :\ t) :# y) = join (application x <$> reduction t <*> reduction y)
+reduction ((x :\ t) :# y) = reduction y >>= application x t -- mild
+-- reduction ((x :\ t) :# y) = join (application x <$> reduction t <*> reduction y)
 reduction ( e :# e') = (#) <$> reduction e <*> reduction e' -- application through
 
 --  beta-reduction steps
@@ -195,20 +195,15 @@ runVs f = withFreshes [X ..] . betas $ f [X ..]
 lshow = map toLower . show
 pprint' _ (T x) = lshow x
 
-pprint' False (x :\ y@(_ :\ _)) = "\\" ++ lshow x ++ pprint' True y
+pprint' False (x :\ y@(_ :\ _)) = "(\\" ++ lshow x ++ pprint' True y++")"
 pprint' True (x :\ y@(_ :\ _)) =  lshow x ++ pprint' True y
 
-pprint' False (x :\ y@(_ :# _)) = "\\" ++ lshow x ++ "." ++ pprint' True y
+pprint' False (x :\ y@(_ :# _)) = "(\\" ++ lshow x ++ "." ++ pprint' True y ++ ")"
 pprint' True (x :\ y@(_ :# _)) = lshow x ++ "." ++ pprint' True y
 
-pprint' False (x :\ y) = "\\" ++ lshow x ++ "." ++ pprint' False y
+pprint' False (x :\ y) = "(\\" ++ lshow x ++ "." ++ pprint' False y ++ ")"
 pprint' True (x :\ y) = lshow x ++ "." ++ pprint' False y
 
-pprint' False (x@(_ :\ _) :# y@( _ :\ _)) = "(" ++ "(" ++ pprint' False x ++ ")(" ++ pprint' False y ++ ")" ++")"
-pprint' True (x@(_ :\ _) :# y@( _ :\ _)) =  "(" ++ pprint' False x ++ ")(" ++ pprint' False y ++ ")" 
-pprint' _ (x@(_ :# _) :# y@( _ :\ _)) = "("  ++ pprint' True x ++ "(" ++ pprint' False y ++ ")" ++")"
-pprint' _ (x :# y@( _ :\ _)) = "("  ++ pprint' False x ++ "(" ++ pprint' False y ++ ")" ++")"
-pprint' _ (x@(_ :\ _) :# y) = "(" ++ "(" ++ pprint' False x ++ ")" ++ pprint' False y ++ ")"
 
 pprint' False (x@(_ :#_) :# y) = "(" ++ pprint' True x ++ pprint' False y ++ ")"
 pprint' True (x@(_ :# _) :# y) = pprint' True x ++ pprint' False y
@@ -222,39 +217,4 @@ pprint = pprint' False
 
 
         
-{-
-main = hspec specs
---------------------------------------------
-zoo = [self,id_,zero,suc,false,true,and_,not_]
 
-runI f = runBeta <*> f $ [1..]
-a ==:== b = runI a =:= runI b 
-infixr 1 ==:== 
-specs = do
-    describe "reduce id" $ do
-        it "beta reduce id on the zoo" $ and
-            [   and [id_ %# f ==:== f | f <- zoo]
-            ]
-    describe "bools" $ do
-        it "checks and truth table" $ and
-            [    and_ %# true %# true ==:==  true
-            ,    and_ %# true %# false ==:==  false
-            ,    and_ %# false %# true ==:==  false
-            ,    and_ %# false %# false ==:==  false
-            ]
- 
- 
- 
-        it "checks or truth table" $ and
-            [    or_ %# true %# true ==:==  true
-            ,    or_ %# true %# false ==:==  true
-            ,    or_ %# false %# true ==:==  true
-            ,    or_ %# false %# false ==:==  false
-            ]
-    describe "numbers" $ do
-        it "checks 2 + 2 = 4" $ and
-            [   plus %# two %# two ==:== suc %# three
-            ,   plus %# three %# three ==:== plus %# (suc %# three) %# two
-            ,   plus %# three %# three ==:== plus %# two %# (suc %# three)
-            ]
--}

@@ -24,7 +24,7 @@ parens term = do
 term = T <$> value <|> parens ( T <$> value)
 value = letter >>= readTerm
 lambda = do
-    char '\\' 
+    char '\\' <|> char '!' <|> char '/'
     ls <- many value
     char '.'
     c <- exprP

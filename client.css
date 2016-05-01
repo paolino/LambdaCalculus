@@ -15,8 +15,28 @@ button {
        border-radius:0.3em;
        padding: 10px;
        min-width:4em;
+       
+       border:0.1em solid #aaa;
 }
-.head {margin:0 auto;
-       text-align:justify;
-       width:30em;
+.source {float:right;
+       font-size:0.7em
        }
+.head {background-color: lightblue;
+       color:white;
+       margin:0.1em;
+       border-radius: 0.3em;
+       padding:1em;
+       border:0.1em inset white
+       }
+.expression input{
+       font-size:1.1em;
+       width: 100%;
+       
+}
+.title button{
+             margin-left: 1em;
+             margin-bottom: 1em;
+             padding:0.3em;
+             background-color: #a99;
+      
+}
