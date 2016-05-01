@@ -1,0 +1,22 @@
+body {font-size:1.2em;}
+.standard {margin:0.1em;}
+.add {margin:0.1em}
+.control {margin:0.1em}
+.edit {background-color: lightgray;
+       margin:0.1em;
+       border-radius: 0.3em;
+       padding:1em;
+       border:0.1em inset white
+       }
+.title {
+    color:blueviolet;
+}
+button {
+       border-radius:0.3em;
+       padding: 10px;
+       min-width:4em;
+}
+.head {margin:0 auto;
+       text-align:justify;
+       width:30em;
+       }
