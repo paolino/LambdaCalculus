@@ -16,6 +16,7 @@ import Data.Maybe
 import qualified GHCJS.DOM.HTMLInputElement as J
 import qualified GHCJS.DOM.Element as J
 import qualified Data.Map as M
+import Data.Monoid
 
 variables = nub $ "xyzwnmlkij" ++ ['a' .. 'z']
 
@@ -54,30 +55,25 @@ inputW = do
 result p = case parsing p of
             Left e -> divClass "edit" $ do
                         divClass "title" $ text "Not Parsed"
-                        text $ "Use λ or ! or  \\ or / or ^ to open a lambda"
+                        elClass "span" "tooltip" $ text $ "Use λ or ! or  \\ or / or ^ to open a lambda"
                         return Nothing
             Right e -> do
                 divClass "edit" $ do
-                    divClass "title" $ text "Beta reduction steps"
+                    divClass "title" $ text "Beta reduction"
                     z <- fmap last . elClass "ol" "steps" $ 
                         forM (withFreshes variables $ betas e) $ \r -> do 
                             elClass "li" "steps" . text . pprint $ r
                             return r
                     return$ Just z
 
-{-
-    ts <- divClass "control" $ do
-        b <-  tail      <$$ button "back"
-        t <-  const ""  <$$ button "reset"   
-        return [t,b]
--}
+linkNewTab :: MonadWidget t m => String -> String -> m ()
+linkNewTab href s = elAttr "a" ("href" =: href <> "target" =: "_blank") $ text s
+
 main = mainWidget $ do
 
     elClass "h2" "head" $ do
-            divClass "matter" $ text "Lambda Calculus"
-            divClass "source" $ do
-                text "source: "
-                link "http://github.com/paolino/LambdaCalculus"
+            divClass "matter" $ linkNewTab "https://en.wikipedia.org/wiki/Lambda_calculus" "Lambda Calculus"
+            divClass "source" $ linkNewTab "http://github.com/paolino/LambdaCalculus" "source code"
 
     rec ss <- divClass "standard" $ do 
             f <- false  <$$ button "false"
@@ -88,26 +84,29 @@ main = mainWidget $ do
             z <- zero   <$$ button "zero"
             s <- suc    <$$ button "succ"
             p <- plus   <$$ button "plus"
-            -- ns <- mapM (\(d,n) -> d  <$$ button n) news
             zs' <- listWithKey   us (\k v -> fmap (pprint . fst) <$> attachDyn v <$> button k)
             zs <- mapDyn (leftmost . M.elems) zs'          
-
+            op <- "(" <$$ button "("
+            cl <- ")" <$$ button ")"
             let tra x = pprint (x variables)
-            return $ map (fmap tra) [f,t,a,z,i,s,p,o] ++ [switch . current $ zs]
-        (t :: Dynamic Spider String, s :: Event Spider String)  <- divClass "edit" $ do 
+            return $ map (fmap tra) [f,t,a,z,i,s,p,o] ++ [switch . current $ zs] ++ [op,cl]
+
+        (t :: Dynamic Spider String)  <- divClass "edit" $ do 
                 r <- divClass "title" $ do
                             text "Expression"
                             button "clear"
-                s <- divClass "title" $ do
-                        text "result as button: "
-                        inputW 
                 r' <- divClass "expression" $ 
                     view textInput_value <$> expression (leftmost ss ) (leftmost $ [r, fmap (const ()) s])
-                return (r',s)
+                return r'
 
         (z :: Event Spider (Expr Char)) <-  fmap fromJust <$> (ffilter isJust) <$> (mapDyn result t >>= dyn) -- :: _ (Event Spider (Maybe (Expr Char))) 
         store :: Event Spider (Expr Char, String) <- flip attach s <$> hold (T 'X') z
         (us :: Dynamic Spider (M.Map String (Expr Char))) <- foldDyn (\(x,y) s -> M.insert y x s) M.empty store
+        s <-    divClass "edit" $ divClass "title" $ do
+                 
+                    s <-inputW 
+                    elClass "span" "tooltip" $ text "name the result"
+                    return s
     return () 
  
     

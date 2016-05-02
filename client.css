@@ -5,28 +5,30 @@ body {font-size:1.2em;}
 .edit {background-color: lightgray;
        margin:0.1em;
        border-radius: 0.3em;
-       padding:1em;
+       padding:0.5em;
        border:0.1em inset white
        }
 .title {
     color:blueviolet;
+    font-size: 0.8em;
+       display: inline-block;
+       margin-right:1em
 }
 button {
        border-radius:0.3em;
        padding: 10px;
        min-width:4em;
-       
-       border:0.1em solid #aaa;
+       border:0.05em outset #ccc;
 }
-.source {float:right;
-       font-size:0.7em
+.source {;
+       font-size:0.5em
        }
-.head {background-color: lightblue;
+.head {background-color:
        color:white;
        margin:0.1em;
        border-radius: 0.3em;
        padding:1em;
-       border:0.1em inset white
+      
        }
 .expression input{
        font-size:1.1em;
@@ -37,6 +39,31 @@ button {
              margin-left: 1em;
              margin-bottom: 1em;
              padding:0.3em;
-             background-color: #a99;
+             background-color: #cec;
+             color:black;
       
+}
+a{
+   
+       color:#669
+       
+}
+.tooltip {
+    color: #fff;
+    text-align: center;
+    border-radius: 6px;
+    padding: 5px 0;
+    font-size:0.7em;
+    margin-left:0.5em;
+}
+
+.newbutton {padding:0.3em; 
+       background-color:grey;
+       opacity:0.6;
+       border-radius:0.3em;
+       margin-left:0.1em;
+       margin:0.1em;
+       border-radius: 0.3em;
+       padding:0.5em;
+       border:0.1em inset white
 }
