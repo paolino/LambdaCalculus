@@ -142,7 +142,7 @@ matchAbstracted
         BothFresh ->    not (x `elem` view lostLeft as) -- x is free var
                     &&  not (y `elem` view lostRight as) -- y is free var
                     &&  x == y 
-        _ -> error (show ("babbo",as))
+        _ -> False
     -- lambdas
     alpha' as (x :\ tx) (y :\ ty) = (\f -> alpha' (f as) tx ty) $ case matchAbstracted as (x,y)  of
         Shadows -> id
@@ -153,7 +153,7 @@ matchAbstracted
             NoFresh x' y' ->  y' . x'
     -- composition
     alpha' as (x1 :# x2) (y1 :# y2) = alpha' as x1 y1 && alpha' as x2 y2
-    alpha' _ _ _ = error "mamma" 
+    alpha' _ _ _ = False
 
 ------------ running ----------------------------------------------------
 

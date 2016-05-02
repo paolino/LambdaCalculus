@@ -17,6 +17,7 @@ import qualified GHCJS.DOM.HTMLInputElement as J
 import qualified GHCJS.DOM.Element as J
 import qualified Data.Map as M
 import Data.Monoid
+import Data.Tuple
 
 variables = nub $ "xyzwnmlkij" ++ ['a' .. 'z']
 
@@ -51,8 +52,9 @@ inputW = do
 (<$$) :: (Functor f, Functor g) => a -> f (g b) -> f (g a)
 (<$$) f = ((f <$) <$>)
 
-
-result p = case parsing p of
+type LL = [(Expr Char,String)]
+result :: MonadWidget t m => LL -> String  -> m (Maybe (Expr Char))
+result db p = case parsing p of
             Left e -> divClass "edit" $ do
                         divClass "title" $ text "Not Parsed"
                         elClass "span" "tooltip" $ text $ "Use λ or ! or  \\ or / or ^ to open a lambda"
@@ -62,12 +64,24 @@ result p = case parsing p of
                     divClass "title" $ text "Beta reduction"
                     z <- fmap last . elClass "ol" "steps" $ 
                         forM (withFreshes variables $ betas e) $ \r -> do 
-                            elClass "li" "steps" . text . pprint $ r
+                            elClass "li" "steps" . text . pprintdb db $ r
                             return r
                     return$ Just z
 
 linkNewTab :: MonadWidget t m => String -> String -> m ()
 linkNewTab href s = elAttr "a" ("href" =: href <> "target" =: "_blank") $ text s
+
+boot ::LL 
+boot = [
+    (false variables,"FALSE"),
+    (true variables,"TRUE"),
+    (and_ variables,"AND"),
+    (or_ variables,"OR"),
+    (id_ variables,"ID"),
+    (zero variables,"ZERO"),
+    (suc variables,"SUCC"),
+    (plus variables,"PLUS")
+    ]
 
 main = mainWidget $ do
 
@@ -76,37 +90,36 @@ main = mainWidget $ do
             divClass "source" $ linkNewTab "http://github.com/paolino/LambdaCalculus" "source code"
 
     rec ss <- divClass "standard" $ do 
-            f <- false  <$$ button "false"
-            t <- true   <$$ button "true"
-            a <- and_   <$$ button "and"
-            o <- or_    <$$ button "or"
-            i <- id_    <$$ button "id"
-            z <- zero   <$$ button "zero"
-            s <- suc    <$$ button "succ"
-            p <- plus   <$$ button "plus"
             zs' <- listWithKey   us (\k v -> fmap (pprint . fst) <$> attachDyn v <$> button k)
             zs <- mapDyn (leftmost . M.elems) zs'          
             op <- "(" <$$ button "("
             cl <- ")" <$$ button ")"
             let tra x = pprint (x variables)
-            return $ map (fmap tra) [f,t,a,z,i,s,p,o] ++ [switch . current $ zs] ++ [op,cl]
+            return $  [switch . current $ zs] ++ [op,cl]
 
-        (t :: Dynamic Spider String)  <- divClass "edit" $ do 
-                r <- divClass "title" $ do
+        (t :: Dynamic Spider String,c)  <- divClass "edit" $ do 
+                (r,c) <- divClass "title" $ do
                             text "Expression"
-                            button "clear"
+                            b <- button "clear"
+                            c <- divClass "usenames" $ do
+                                    c <- checkbox False def
+                                    elClass "span" "tooltip" $ text "substitute names"
+                                    return c
+                            return (b,view checkbox_value c)
                 r' <- divClass "expression" $ 
                     view textInput_value <$> expression (leftmost ss ) (leftmost $ [r, fmap (const ()) s])
-                return r'
-
-        (z :: Event Spider (Expr Char)) <-  fmap fromJust <$> (ffilter isJust) <$> (mapDyn result t >>= dyn) -- :: _ (Event Spider (Maybe (Expr Char))) 
+                return (r',c)
+        -- t' <- holdDyn ([],"") $ attachWith (\us t -> (map swap . M.toList $ us,t)) (current us) (updated t)
+        t' <- combineDyn (\us t -> (map swap . M.toList $ us,t)) us t
+        t'' <- combineDyn (\(us,t) c -> if c then (us,t) else ([],t)) t' c
+        z :: Event Spider (Expr Char) <-  fmap fromJust <$> (ffilter isJust) <$> (mapDyn (uncurry result) t'' >>= dyn) -- :: _ (Event Spider (Maybe (Expr Char))) 
         store :: Event Spider (Expr Char, String) <- flip attach s <$> hold (T 'X') z
-        (us :: Dynamic Spider (M.Map String (Expr Char))) <- foldDyn (\(x,y) s -> M.insert y x s) M.empty store
+        us :: Dynamic Spider (M.Map String (Expr Char)) <- foldDyn (\(x,y) s -> M.insert y x s) (M.fromList $ map swap boot) store
         s <-    divClass "edit" $ divClass "title" $ do
                  
                     s <-inputW 
                     elClass "span" "tooltip" $ text "name the result"
-                    return s
+                    return (fmap (map toUpper) s)
     return () 
  
     
