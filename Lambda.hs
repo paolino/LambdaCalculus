@@ -27,12 +27,12 @@ infixr 1 :\
 data Replace a = Replace {
     target :: a, -- name target to replace
     expr :: Expr a, -- expression replacing the target
-    freevarset :: [a] -- shared free variables of the expr
+    dontuse :: [a] -- shared free variables of the expr
     } deriving (Show)
 
 -- make a replace from a target and a replacing expression
 replace :: Eq a =>  a -> Expr a -> Replace a
-replace x = Replace x <*> nub . freevars 
+replace x = Replace x <*> nub . (x:) . freevars 
 
 -- free variables of an expression , with duplicates 
 freevars :: Eq a => Expr a -> [a]
@@ -55,30 +55,31 @@ eq = (==)
 -- should be correct to use Functor Expr as even lambda introduction of the target will be substituted, 
 -- overhead for not ignoring shadowing
 
-substitute :: Eq a => a -> a -> Expr a -> Expr a
-substitute p y  = fmap s where
-    s (eq y -> True) = p
-    s z = z
+alphasub :: Eq a => a -> a -> Expr a -> Expr a
+alphasub p y (T ((==y) -> True)) =  T p
+alphasub p y l@(((==y) -> True) :\ _) = l
+alphasub p y (l :\ t) = l :\ alphasub p y t 
+alphasub p y (s :# t) = alphasub p y s :# alphasub p y t 
+alphasub p y x = x
 
 -- main logic for beta-reduction. this solution unshadows all, changing all abstraction names
 captures :: Eq a =>  Expr a -> Replace a -> Freshes a (Expr a)
 captures (T x) (Replace (eq x -> True) r _)  = return r -- replace
 captures v@(T _) _ = return v -- keep old
-captures ((:#) t s) r = (#) <$> captures t r <*> captures s r -- let captures through both
-captures l@((:\) x _) (Replace (eq x -> True) _ _)  = return l -- the introduction cancels the replacement
-captures ((:\) x t) r = do
-        p <- asks $ head . dropWhile (`elem` freevarset r)  -- throw away free variables in t, hostinate alpha 
-        local tail $ -- what ever is taken as new name, never reuse it down this path
-            (\.) p <$> captures (substitute p x t) r -- actual alpha transform
+captures l@(x :\ _) (Replace (eq x -> True) _ _)  = return l -- the introduction cancels the replacement
+captures (x :\ t) r = do
+        p <- asks $ head . filter (not . (`elem` dontuse r)) . (x:)  -- throw away free variables in t, hostinate alpha 
+        (\.) p <$> captures (alphasub p x t) r -- actual alpha transform
+captures (t :# s) r = (#) <$> captures t r <*> captures s r -- let captures through both
 
-application x t = local (filter $ (/=) x) . captures t . replace x 
 -- single reduction step, hunting and collapsing  x \. y :# z pattern (lambda application)
 reduction :: Eq a => Expr a -> Freshes a (Expr a)
 reduction v@(T x) = return v -- reduction branch over
 reduction (x :\ t) = (\.) x <$> reduction t -- lambda through
 -- reduction ((x :\ t) :# y) = application x t y >>= reduction -- aggressive
-reduction ((x :\ t) :# y) = reduction y >>= application x t -- mild
--- reduction ((x :\ t) :# y) = join (application x <$> reduction t <*> reduction y)
+-- reduction ((x :\ t) :# y) = reduction y >>= application x t -- mild
+reduction ((x :\ t) :# y) = join (application x <$> reduction t <*> reduction y)
+                                where application x t = captures t . replace x 
 reduction ( e :# e') = (#) <$> reduction e <*> reduction e' -- application through
 
 --  beta-reduction steps
@@ -182,37 +183,6 @@ and_ (x:y:_) = x \. y \. T x # T y # T x
 not_ k@(x:_) = x \. T x # false k # true k
 or_ (x:y:_) = x \. y \. T x # T x # T y
 
------ appealing fresh names set ----------------------------------------------
-data V = X | Y | Z | W | J | U  | H | R | G | S | N | M | K | Q | F | D | O | B  deriving (Show,Enum,Eq,Bounded)
- 
-one = suc %# zero
-two = suc %# one
-three = suc %# two
-four = suc %# three
-
-runV f = runBeta <*> f $ [X ..]
-runVs f = withFreshes [X ..] . betas $ f [X ..]
-lshow = map toLower . show
-pprint' _ (T x) = lshow x
-
-pprint' False (x :\ y@(_ :\ _)) = "(\\" ++ lshow x ++ pprint' True y++")"
-pprint' True (x :\ y@(_ :\ _)) =  lshow x ++ pprint' True y
-
-pprint' False (x :\ y@(_ :# _)) = "(\\" ++ lshow x ++ "." ++ pprint' True y ++ ")"
-pprint' True (x :\ y@(_ :# _)) = lshow x ++ "." ++ pprint' True y
-
-pprint' False (x :\ y) = "(\\" ++ lshow x ++ "." ++ pprint' False y ++ ")"
-pprint' True (x :\ y) = lshow x ++ "." ++ pprint' False y
-
-
-pprint' False (x@(_ :#_) :# y) = "(" ++ pprint' True x ++ pprint' False y ++ ")"
-pprint' True (x@(_ :# _) :# y) = pprint' True x ++ pprint' False y
-
-pprint' False (x :# y) = "(" ++ pprint' False x ++ pprint' False y ++ ")"
-pprint' True (x :# y) = pprint' False x ++ pprint' False y
-
-pprint :: Show a => Expr a -> String
-pprint = pprint' False
 
 
 

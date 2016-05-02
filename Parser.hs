@@ -8,11 +8,11 @@ import Data.Char
 import Text.Parsec
 import Data.List
 
-terms = concat $ map show [X .. B]
-readTerm :: Char -> Parser V
-readTerm x = maybe (unexpected "no parse") return  . lookup (toUpper x) $ zip terms [X .. B]
+terms = ['A' .. 'Z']
+readTerm :: Char -> Parser Char
+readTerm  x = if toUpper x `elem` terms then return x else unexpected "no parse"
 
-term,lambda,combine,exprP :: Parser (Expr V)
+term,lambda,combine,exprP :: Parser (Expr Char)
 exprP = spaces >> (lambda <|> try combine <|>  term)
 
 parens term = do
@@ -24,7 +24,7 @@ parens term = do
 term = T <$> value <|> parens ( T <$> value)
 value = letter >>= readTerm
 lambda = do
-    char '\\' <|> char '!' <|> char '/'
+    char '\\' <|> char '!' <|> char '/' <|> char 'λ' <|> char '^'
     ls <- many value
     char '.'
     c <- exprP
