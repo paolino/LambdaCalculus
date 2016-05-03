@@ -184,11 +184,11 @@ buttonsW buttonsDef = divClass "standard" $ do
 expressionW buttons new_button = divClass "edit" $ do 
                 (r,c) <- divClass "title" $ do
                             text "Expression"
-                            b <- button "clear"
                             c <- divClass "usenames" $ do
                                     c <- checkbox False def
                                     elClass "span" "tooltip" $ text "substitute names"
                                     return c
+                            b <- button "clear"
                             return (b,view checkbox_value c)
                 (,c) <$> divClass "expression" (selInputW buttons . leftmost $ [r, new_button])
 
