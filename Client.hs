@@ -102,9 +102,6 @@ combineDyn = combineDynWith (,)
 justThrough :: Reflex t => Event t (Maybe b) -> Event t b
 justThrough = fmapMaybe (fmap id)
 
-liveWidget :: MonadWidget t m => (Event t a -> Event t (Event t b)) -> m (Dynamic t (m a)) -> m (Event t b)
-liveWidget f d = f <$> (d >>= dyn) >>= fmap switch . hold never
-
 ---------------- these are wrong ,wait for Unalign instance ----------------------------
 compose :: Reflex t => (Event t a, Event t b) -> Event t (Either a b)
 compose (x,y) = leftmost [Left <$> x , Right <$> y]
@@ -156,12 +153,9 @@ data TacticE = NewButton {redButton :: Button} | NewEdit { redEC :: EC} | Change
 
 makePrisms ''TacticE
 
-redButtonE = fmap redButton . ffilter (has _NewButton)
-redECE = fmap redEC . ffilter (has _NewEdit)
-redRedE = fmap redRed .ffilter (has _ChangeTactic)
 
-reductionW :: MS m => (Tactic , (Maybe ButtonsDefs, String)) -> m (Maybe (ES TacticE))
-reductionW (red,(dbm, p)) = case parsing p of
+reductionW :: MS m => (Tactic , (Maybe ButtonsDefs, String)) -> m (ES TacticE)
+reductionW (red,(dbm, p)) = maybe never id <$> case parsing p of
             Left e -> divClass "edit" $ do
                         divClass "title" $ text "Not Parsed"
                         elClass "span" "tooltip" $ text $ "Use λ or ! or  \\ or / or ^ to open a lambda"
@@ -245,15 +239,14 @@ main = mainWidget . void $ do
 
         (expression :: DS String, substitute :: DS Bool)  <- expressionW  buttons upEC
 
-        bdefsAndExpr :: DS (Tactic, (Maybe ButtonsDefs, String)) <- combineDyn buttonsDef expression >>= combineDynWith (first <$> toMaybe) substitute >>= combineDyn redType 
+        bdefsAndExpr :: DS (Tactic, (Maybe ButtonsDefs, String)) <- 
+            combineDyn buttonsDef expression >>= combineDynWith (first <$> toMaybe) substitute >>= combineDyn redType 
         
-        (reductionE :: ES TacticE ) <- liveWidget justThrough (mapDyn reductionW bdefsAndExpr)
+        (reductionE :: ES TacticE ) <- mapDyn reductionW bdefsAndExpr >>= dyn >>= joinE
         
-        let     newButton = redButtonE reductionE
-                upEC = redECE reductionE
-        redType <- holdDyn Normal $ redRedE reductionE
-
-        
+        let     newButton = fmap redButton . ffilter (has _NewButton) $ reductionE
+                upEC = fmap redEC . ffilter (has _NewEdit) $ reductionE
+        redType <- holdDyn Normal $ fmap redRed .ffilter (has _ChangeTactic) $ reductionE
 
         buttonsDef :: DS ButtonsDefs  <- foldDyn new boot newButton
 
