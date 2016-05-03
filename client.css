@@ -28,7 +28,8 @@ button {
        margin:0.1em;
        border-radius: 0.3em;
        padding:1em;
-      
+             border:1px solid #aaa
+
        }
 .expression input{
        font-size:1.1em;
@@ -53,7 +54,7 @@ a{
     text-align: center;
     border-radius: 6px;
     padding: 5px 0;
-    font-size:0.7em;
+    font-size:0.8em;
     margin-left:0.5em;
 }
 
@@ -66,4 +67,7 @@ a{
        border-radius: 0.3em;
        padding:0.5em;
        border:0.1em inset white
+}
+.usenames {
+            display: inline;
 }

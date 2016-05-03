@@ -19,6 +19,7 @@ import qualified GHCJS.DOM.Element as J
 import qualified Data.Map as M
 import Data.Monoid
 import Data.Tuple
+import Data.Maybe.HT (toMaybe)
 
 ----------------------- combinator -------------------
 (<$$) :: (Functor f, Functor g) => a -> f (g b) -> f (g a)
@@ -82,10 +83,10 @@ joinE = fmap switch . hold never
 combineDynWith = Reflex.combineDyn
 combineDyn = combineDynWith (,)
 
-
-justThrough :: FunctorMaybe f => f (Maybe b) -> f b
+justThrough :: Reflex t => Event t (Maybe b) -> Event t b
 justThrough = fmapMaybe (fmap id)
 
+liveWidget :: MonadWidget t m => (Event t a -> Event t (Event t b)) -> m (Dynamic t (m a)) -> m (Event t b)
 liveWidget f d = f <$> (d >>= dyn) >>= fmap switch . hold never
 
 ----------------------------------------------
@@ -164,12 +165,16 @@ boot = foldr new M.empty $ map swap [
 --
 
 
+extrabuttons :: MS m => m [ES String]
+extrabuttons = mapM (\c -> c <$$ button c) ["(" ,"(λ","x" ,"y" ,"z" ,"w" ,"n" ,"m" ,"l" ,"." ,")"] 
 
-makeButton (_,k) v = fmap (pprint . fst) <$> attachDyn v <$> button k
+
+makeButton :: MS m => String -> DS EC -> m (ES String)
+makeButton k v = fmap (pprint . fst) <$> attachDyn v <$> button k
 --
 buttonsW buttonsDef = divClass "standard" $ do 
-            keys <- extrakeys
-            dynOfEvents <- listWithKey buttonsDef makeButton >>= mapDyn (leftmost . M.elems)           
+            keys <- extrabuttons
+            dynOfEvents <- listWithKey buttonsDef (makeButton . snd) >>= mapDyn (leftmost . M.elems)           
             return . leftmost $ (switch . current $ dynOfEvents) : keys
 
 
@@ -188,29 +193,26 @@ expressionW buttons new_button = divClass "edit" $ do
                 (,c) <$> divClass "expression" (selInputW buttons . leftmost $ [r, new_button])
 
 
+----------------- a dumb footer ---------------------------
 --
+footer :: MS m => m ()
 footer = divClass "edit" . divClass "tooltip" $ text "Ghcjs + Reflex application. Kudos to them!"
 
-extrakeys :: MS m => m [ES String]
-extrakeys = mapM (\c -> c <$$ button c) ["(" ,"(λ","x" ,"y" ,"z" ,"w" ,"n" ,"m" ,"l" ,"." ,")"] 
-
-
-substituteOrNot b = first $ if b then Just else const Nothing
 
 
 main = mainWidget . void $ do
+
     header
+
     rec buttons <- buttonsW buttonsDef 
 
         (expression :: DS String, substitute :: DS Bool)  <- expressionW  buttons (const () <$> newButton)
 
-        bdefsAndExpr :: DS (Maybe ButtonsDefs, String) <- combineDyn buttonsDef expression >>= combineDynWith substituteOrNot substitute 
+        bdefsAndExpr :: DS (Maybe ButtonsDefs, String) <- combineDyn buttonsDef expression >>= combineDynWith (first <$> toMaybe) substitute 
         
         newButton :: ES Button <-  liveWidget justThrough (mapDyn reductionW bdefsAndExpr)
 
         buttonsDef :: DS ButtonsDefs  <- foldDyn new boot newButton
+
     footer
  
-{-
-    
--}
