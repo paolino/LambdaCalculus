@@ -49,7 +49,7 @@ checkbox {background-color: white}
        width: 100%;
        
 }
-.title button{
+.clear button{
              margin-left: 1em;
              margin-bottom: 1em;
              margin-right:1em;
@@ -86,8 +86,14 @@ a{
             display: inline;
              margin-left:1em;
 }
+.clear{display:inline}
 input {border-radius:0.2em;
        border: 0.1px solid #aaa;
        padding:0.1em;
        }
 .usenames input {background-color: white;}
+.up button{padding:0em;margin-left:1em;font-size:0.6em;padding-top:0.4em}
+.steps {font-size:0.9em}
+.reduction_choice{display:flex;font-size:0.7em; color:#555}
+.icheck{margin-left:1em}
+.title {float:left}

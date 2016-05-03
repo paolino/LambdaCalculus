@@ -72,25 +72,28 @@ captures (x :\ t) r = do
         (\.) p <$> captures (alphasub p x t) r -- actual alpha transform
 captures (t :# s) r = (#) <$> captures t r <*> captures s r -- let captures through both
 
+data Tactic = Aggressive | Mild | Normal deriving Eq
+
+application x t = captures t . replace x 
+
 -- single reduction step, hunting and collapsing  x \. y :# z pattern (lambda application)
-reduction :: Eq a => Expr a -> Freshes a (Expr a)
-reduction v@(T x) = return v -- reduction branch over
-reduction (x :\ t) = (\.) x <$> reduction t -- lambda through
--- reduction ((x :\ t) :# y) = application x t y >>= reduction -- aggressive
--- reduction ((x :\ t) :# y) = reduction y >>= application x t -- mild
-reduction ((x :\ t) :# y) = join (application x <$> reduction t <*> reduction y)
-                                where application x t = captures t . replace x 
-reduction ( e :# e') = (#) <$> reduction e <*> reduction e' -- application through
+reduction :: Eq a => Tactic -> Expr a -> Freshes a (Expr a)
+reduction _ v@(T x) = return v -- reduction branch over
+reduction tc (x :\ t) = (\.) x <$> reduction tc t -- lambda through
+reduction Aggressive ((x :\ t) :# y) = application x t y >>= reduction Aggressive -- aggressive
+reduction Mild((x :\ t) :# y) = reduction Mild y >>= application x t -- mild
+reduction Normal ((x :\ t) :# y) = join (application x <$> reduction Normal t <*> reduction Normal y)
+reduction tc ( e :# e') = (#) <$> reduction tc e <*> reduction tc e' -- application through
 
 --  beta-reduction steps
-betas :: Eq a => Expr a -> Freshes a [Expr a]
-betas e = (e :) <$> do 
-    e' <- reduction e
+betas :: Eq a => Tactic -> Expr a -> Freshes a [Expr a]
+betas tc e = (e :) <$> do 
+    e' <- reduction tc e
     if e == e' then return []
-    else betas e'
+    else betas tc e'
 
-beta :: Eq a => Expr a -> Freshes a (Expr a) 
-beta e = last <$> betas e
+beta :: Eq a => Tactic -> Expr a -> Freshes a (Expr a) 
+beta tc e = last <$> betas tc e
 
 ---------------------------- alpha equality check -------------------
 
@@ -156,7 +159,7 @@ matchAbstracted
     alpha' _ _ _ = False
 
 ------------ running ----------------------------------------------------
-
+{-
 run :: Enum a => a -> Freshes a b -> b
 run x = withFreshes (enumFrom x)
 
@@ -164,6 +167,7 @@ runBeta :: Eq a => [a] -> Expr a -> Expr a
 runBeta xs = withFreshes xs . beta
 
 runBetas xs = withFreshes xs . betas
+-}
 ----------- composing -------------------
 
 a %# b = fmap (:#) a <*> b 

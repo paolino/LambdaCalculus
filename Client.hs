@@ -1,5 +1,5 @@
 
-{-# LANGUAGE RecursiveDo, NoMonomorphismRestriction, TupleSections, FlexibleContexts,ScopedTypeVariables,OverloadedLists, ConstraintKinds #-}
+{-# LANGUAGE RecursiveDo, NoMonomorphismRestriction, TupleSections, FlexibleContexts,ScopedTypeVariables,OverloadedLists, ConstraintKinds, TemplateHaskell #-}
 
 import Reflex hiding (combineDyn)
 import qualified Reflex as Reflex
@@ -20,6 +20,7 @@ import qualified Data.Map as M
 import Data.Monoid
 import Data.Tuple
 import Data.Maybe.HT (toMaybe)
+import Data.Either
 
 ----------------------- combinator -------------------
 (<$$) :: (Functor f, Functor g) => a -> f (g b) -> f (g a)
@@ -36,6 +37,21 @@ new (k,v) m = case M.maxViewWithKey m of
 
 mmAssocs :: MM k a -> [(k,a)]
 mmAssocs = map (first snd) . M.assocs
+
+------------------ radio checkboxes ----------------------
+--
+radiocheckW :: (MonadHold t m,MonadWidget t m) => Eq a => a -> [(String,a)] -> m (Event t a)
+radiocheckW j xs = do
+    rec  es <- forM xs $ \(s,x) -> divClass "icheck" $ do
+                    let d = def & setValue .~ (fmap (== x) $ updated result)
+                    e <- fmap (const x) <$>  view checkbox_change <$> checkbox (x == j) d
+                    text s
+                    return e
+         result <- holdDyn j $ leftmost es
+    return $ updated result
+            
+            
+
 
 ---------------- input widget -----------------------------------------------
 insertAt :: Int -> String -> String -> (Int, String)
@@ -61,12 +77,12 @@ inputW = do
 
 selInputW
   :: MonadWidget t m =>
-     Event t String -> Event t b -> m (Dynamic t String)
-selInputW insertionE resetE = do
+     Event t String -> Event t String -> Event t b -> m (Dynamic t String)
+selInputW insertionE refreshE resetE = do
   rec insertionLocE <- attachSelectionStart t insertionE
       let newE = attachWith (\s (n,e) -> insertAt n e  s) (current (value t)) insertionLocE
       setCaret t (fmap fst newE)
-      t <- textInput $ def & setValue .~ leftmost [fmap snd newE, fmap (const "") resetE]
+      t <- textInput $ def & setValue .~ leftmost [fmap snd newE, fmap (const "") resetE, refreshE]
   return $ view textInput_value  t
 
 --------------- a link opening on a new tab ------
@@ -88,6 +104,13 @@ justThrough = fmapMaybe (fmap id)
 
 liveWidget :: MonadWidget t m => (Event t a -> Event t (Event t b)) -> m (Dynamic t (m a)) -> m (Event t b)
 liveWidget f d = f <$> (d >>= dyn) >>= fmap switch . hold never
+
+---------------- these are wrong ,wait for Unalign instance ----------------------------
+compose :: Reflex t => (Event t a, Event t b) -> Event t (Either a b)
+compose (x,y) = leftmost [Left <$> x , Right <$> y]
+
+decompose :: Reflex t => Event t (Either a b)  -> (Event t a, Event t b)
+decompose e = ((head . lefts. return) <$> ffilter isLeft e, (head . rights . return) <$> ffilter isRight e)
 
 ----------------------------------------------
 ------------------ End of libs---------------------
@@ -128,25 +151,38 @@ type ButtonsDefs =  MM String EC
 -- Given a name -> expression eq list and an expression to parse and reduce
 -- if beta succeed returns the last expression and an event with the 
 -- name for the new button
---
-reductionW :: MS m => (Maybe ButtonsDefs, String) -> m (Maybe (ES Button))
-reductionW (dbm, p) = case parsing p of
+
+data TacticE = NewButton {redButton :: Button} | NewEdit { redEC :: EC} | ChangeTactic {redRed :: Tactic}
+
+makePrisms ''TacticE
+
+redButtonE = fmap redButton . ffilter (has _NewButton)
+redECE = fmap redEC . ffilter (has _NewEdit)
+redRedE = fmap redRed .ffilter (has _ChangeTactic)
+
+reductionW :: MS m => (Tactic , (Maybe ButtonsDefs, String)) -> m (Maybe (ES TacticE))
+reductionW (red,(dbm, p)) = case parsing p of
             Left e -> divClass "edit" $ do
                         divClass "title" $ text "Not Parsed"
                         elClass "span" "tooltip" $ text $ "Use λ or ! or  \\ or / or ^ to open a lambda"
                         return Nothing
             Right e -> do
                 divClass "edit" $ do
-                    divClass "title" $ text "Beta reduction"
-                    z <- fmap last . elClass "ol" "steps" $ 
-                        forM (withFreshes var_names $ betas e) $ \r -> do 
+                    divClass "title" $ do
+                                text "Beta reduction"
+                    r <- divClass "reduction_choice" $ radiocheckW red  [("aggressive",Aggressive) , ("mild",Mild), ("normal",Normal)] 
+                    (bs,es) <- fmap unzip . elClass "ol" "steps" $ 
+                        forM (withFreshes var_names $ betas red e) $ \r -> do 
                              elClass "li" "steps"  $ do
                                     text . pprintdb (maybe [] mmAssocs dbm) $ r
-                                    return r
+                                    b <- elClass "span" "up" $ button "edit"
+                                    return (r, fmap (const r) b)
                     s <- record                        
-                    return $ Just $ fmap (flip (,) z) s
+                    let     b = fmap (NewButton . flip (,) (last bs)) s
+                            e = fmap NewEdit $ leftmost es
+                            r' = fmap ChangeTactic $ r
+                    return $ Just $ leftmost [b,e,r']
 
---
 
 ----------------- an initial set of expressions ----------------
 boot :: ButtonsDefs
@@ -172,6 +208,7 @@ extrabuttons = mapM (\c -> c <$$ button c) ["(" ,"(λ","x" ,"y" ,"z" ,"w" ,"n" ,
 makeButton :: MS m => String -> DS EC -> m (ES String)
 makeButton k v = fmap (pprint . fst) <$> attachDyn v <$> button k
 --
+buttonsW :: (MonadWidget Spider m) => DS ButtonsDefs -> m (ES String)
 buttonsW buttonsDef = divClass "standard" $ do 
             keys <- extrabuttons
             dynOfEvents <- listWithKey buttonsDef (makeButton . snd) >>= mapDyn (leftmost . M.elems)           
@@ -181,16 +218,16 @@ buttonsW buttonsDef = divClass "standard" $ do
 --
 ----------------- the expression field widget ---------------
 --
-expressionW buttons new_button = divClass "edit" $ do 
-                (r,c) <- divClass "title" $ do
-                            text "Expression"
-                            c <- divClass "usenames" $ do
+-- expressionW :: MS m => ES String -> ES String -> m (DS String,  DS Bool)
+expressionW buttons picked = divClass "edit" $ do 
+                divClass "title" $ do
+                                    text "Expression"
+                c <- divClass "usenames" $ do
                                     c <- checkbox False def
                                     elClass "span" "tooltip" $ text "substitute names"
                                     return c
-                            b <- button "clear"
-                            return (b,view checkbox_value c)
-                (,c) <$> divClass "expression" (selInputW buttons . leftmost $ [r, new_button])
+                b <- divClass "clear" $ button "clear"
+                (,view checkbox_value c) <$> divClass "expression" (selInputW buttons (fmap pprint picked) b)
 
 
 ----------------- a dumb footer ---------------------------
@@ -206,13 +243,20 @@ main = mainWidget . void $ do
 
     rec buttons <- buttonsW buttonsDef 
 
-        (expression :: DS String, substitute :: DS Bool)  <- expressionW  buttons (const () <$> newButton)
+        (expression :: DS String, substitute :: DS Bool)  <- expressionW  buttons upEC
 
-        bdefsAndExpr :: DS (Maybe ButtonsDefs, String) <- combineDyn buttonsDef expression >>= combineDynWith (first <$> toMaybe) substitute 
+        bdefsAndExpr :: DS (Tactic, (Maybe ButtonsDefs, String)) <- combineDyn buttonsDef expression >>= combineDynWith (first <$> toMaybe) substitute >>= combineDyn redType 
         
-        newButton :: ES Button <-  liveWidget justThrough (mapDyn reductionW bdefsAndExpr)
+        (reductionE :: ES TacticE ) <- liveWidget justThrough (mapDyn reductionW bdefsAndExpr)
+        
+        let     newButton = redButtonE reductionE
+                upEC = redECE reductionE
+        redType <- holdDyn Normal $ redRedE reductionE
+
+        
 
         buttonsDef :: DS ButtonsDefs  <- foldDyn new boot newButton
 
     footer
- 
+{-
+-} 
