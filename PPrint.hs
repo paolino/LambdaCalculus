@@ -27,8 +27,10 @@ pprint ::  Expr Char -> String
 pprint = pprint' False
 
 
-match :: [(Expr Char,String)] -> Expr Char -> Maybe String
-match db x = (++ " "). (" "++) .snd <$> find ((=:= x).fst) db
+type Record = [(String, Expr Char)]
+
+match :: Record -> Expr Char -> Maybe String
+match db x = (++ " "). (" "++) .fst <$> find ((=:= x).snd) db
 
 pprint'' _ _ (T x) = lshow x
 

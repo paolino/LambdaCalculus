@@ -16,7 +16,7 @@ import Data.Char (toLower)
 data Expr a     = T a -- terminal name
                 | a :\ Expr a -- lambda parameter abstraction
                 | Expr a :# Expr a -- expression composition
-                deriving (Show, Functor, Eq)
+                deriving (Show, Functor, Eq, Ord)
 
 (#) = (:#)
 (\.) = (:\)
@@ -183,6 +183,7 @@ and_ (x:y:_) = x \. y \. T x # T y # T x
 not_ k@(x:_) = x \. T x # false k # true k
 or_ (x:y:_) = x \. y \. T x # T x # T y
 
+type EC = Expr Char
 
 
 
