@@ -1,6 +1,8 @@
 
-{-# LANGUAGE RecursiveDo, NoMonomorphismRestriction, TupleSections, FlexibleContexts,ScopedTypeVariables,OverloadedLists, ConstraintKinds, TemplateHaskell #-}
-
+{-# LANGUAGE RecursiveDo,StandaloneDeriving, NoMonomorphismRestriction, TupleSections, FlexibleContexts,ScopedTypeVariables,OverloadedLists, ConstraintKinds, TemplateHaskell #-}
+{-# LANGUAGE GADTs#-}
+import Data.Dependent.Map (DMap, DSum( (:=>) ) , fromList)
+import Data.GADT.Compare.TH
 import Reflex hiding (combineDyn)
 import qualified Reflex as Reflex
 import Reflex.Dom hiding (combineDyn)
@@ -21,6 +23,7 @@ import Data.Monoid
 import Data.Tuple
 import Data.Maybe.HT (toMaybe)
 import Data.Either
+import Data.GADT.Compare
 
 ----------------------- combinator -------------------
 (<$$) :: (Functor f, Functor g) => a -> f (g b) -> f (g a)
@@ -50,9 +53,6 @@ radiocheckW j xs = do
          result <- holdDyn j $ leftmost es
     return $ updated result
             
-            
-
-
 ---------------- input widget -----------------------------------------------
 insertAt :: Int -> String -> String -> (Int, String)
 insertAt n e s = let (u,v) = splitAt n s
@@ -91,9 +91,7 @@ linkNewTab href s = elAttr "a" ("href" =: href <> "target" =: "_blank") $ text s
 
 -------  reflex missings --------------
 
-joinE
-  :: (Reflex t, MonadHold t f) =>
-     Event t (Event t a) -> f (Event t a)
+joinE :: (Reflex t, MonadHold t f) => Event t (Event t a) -> f (Event t a)
 joinE = fmap switch . hold never
 
 combineDynWith = Reflex.combineDyn
@@ -103,12 +101,8 @@ justThrough :: Reflex t => Event t (Maybe b) -> Event t b
 justThrough = fmapMaybe (fmap id)
 
 ---------------- these are wrong ,wait for Unalign instance ----------------------------
-compose :: Reflex t => (Event t a, Event t b) -> Event t (Either a b)
-compose (x,y) = leftmost [Left <$> x , Right <$> y]
-
-decompose :: Reflex t => Event t (Either a b)  -> (Event t a, Event t b)
-decompose e = ((head . lefts. return) <$> ffilter isLeft e, (head . rights . return) <$> ffilter isRight e)
-
+pick :: (GCompare k, Reflex t) => k a -> Event t (DMap k Identity) -> Event t a
+pick x r = select (fan r) x
 ----------------------------------------------
 ------------------ End of libs---------------------
 -----------------------------------------------------
@@ -134,7 +128,7 @@ header = elClass "h2" "head" $ do
 record :: MS m => m (ES [Char])
 record = do
         s <- inputW
-        elClass "span" "tooltip" $ text "reduction name"
+        elClass "span" "tooltip" $ text "save to button"
         return $ fmap (map toUpper) s 
 
 ----------------- a button is an equivalence relation betweena name and an expression
@@ -149,13 +143,19 @@ type ButtonsDefs =  MM String EC
 -- if beta succeed returns the last expression and an event with the 
 -- name for the new button
 
-data TacticE = NewButton {redButton :: Button} | NewEdit { redEC :: EC} | ChangeTactic {redRed :: Tactic}
+data ReductionE a where
+    NewButton :: ReductionE Button
+    NewEdit :: ReductionE EC
+    ChangeTactic :: ReductionE Tactic
+    
 
-makePrisms ''TacticE
+deriveGEq ''ReductionE
+deriveGCompare ''ReductionE
 
+data ReductionInput = ReductionInput Tactic (Maybe ButtonsDefs) String
 
-reductionW :: MS m => (Tactic , (Maybe ButtonsDefs, String)) -> m (ES TacticE)
-reductionW (red,(dbm, p)) = maybe never id <$> case parsing p of
+reductionW :: MS m => ReductionInput -> m (ES (DMap ReductionE Identity))
+reductionW (ReductionInput red dbm p) = maybe never id <$> case parsing p of
             Left e -> divClass "edit" $ do
                         divClass "title" $ text "Not Parsed"
                         elClass "span" "tooltip" $ text $ "Use λ or ! or  \\ or / or ^ to open a lambda"
@@ -172,11 +172,10 @@ reductionW (red,(dbm, p)) = maybe never id <$> case parsing p of
                                     b <- elClass "span" "up" $ button "edit"
                                     return (r, fmap (const r) b)
                     s <- record                        
-                    let     b = fmap (NewButton . flip (,) (last bs)) s
-                            e = fmap NewEdit $ leftmost es
-                            r' = fmap ChangeTactic $ r
-                    return $ Just $ leftmost [b,e,r']
-
+                    let     b = NewButton :=> fmap (flip (,) (last bs)) s
+                            e = NewEdit :=> leftmost es
+                            r' = ChangeTactic :=> r
+                    return $ Just $ merge $ fromList [b,e,r']
 
 ----------------- an initial set of expressions ----------------
 boot :: ButtonsDefs
@@ -229,8 +228,6 @@ expressionW buttons picked = divClass "edit" $ do
 footer :: MS m => m ()
 footer = divClass "edit" . divClass "tooltip" $ text "Ghcjs + Reflex application. Kudos to them!"
 
-
-
 main = mainWidget . void $ do
 
     header
@@ -238,15 +235,19 @@ main = mainWidget . void $ do
     rec buttons <- buttonsW buttonsDef 
 
         (expression :: DS String, substitute :: DS Bool)  <- expressionW  buttons upEC
+        
+        -- horrible :-/ ---
+        bdefsAndExpr :: DS ReductionInput <- do
+              bf <- combineDynWith toMaybe substitute buttonsDef
+              f <- combineDynWith ReductionInput redType bf
+              combineDynWith ($) f expression
+            
+        reductionE :: ES (DMap ReductionE Identity) <- mapDyn reductionW bdefsAndExpr >>= dyn >>= joinE
+        
+        let     newButton = pick NewButton reductionE
+                upEC = pick NewEdit reductionE
 
-        bdefsAndExpr :: DS (Tactic, (Maybe ButtonsDefs, String)) <- 
-            combineDyn buttonsDef expression >>= combineDynWith (first <$> toMaybe) substitute >>= combineDyn redType 
-        
-        (reductionE :: ES TacticE ) <- mapDyn reductionW bdefsAndExpr >>= dyn >>= joinE
-        
-        let     newButton = fmap redButton . ffilter (has _NewButton) $ reductionE
-                upEC = fmap redEC . ffilter (has _NewEdit) $ reductionE
-        redType <- holdDyn Normal $ fmap redRed .ffilter (has _ChangeTactic) $ reductionE
+        redType <- holdDyn Normal $ pick ChangeTactic reductionE
 
         buttonsDef :: DS ButtonsDefs  <- foldDyn new boot newButton
 
