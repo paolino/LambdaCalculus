@@ -24,7 +24,9 @@ import Data.Either
 import Data.GADT.Compare
 import Missing
 import Widgets
+import Reflex.Dom.Contrib.Utils
 
+import qualified GHCJS.DOM.EventM as J
 
 ------------ noisy type and constraint renaming ---------
 type ES = Event Spider
@@ -122,26 +124,35 @@ boot = [
 
 
 --------------------- group button widget --------------------------
-button' :: MonadWidget t m => String -> m (Event t ())
-button' s = do
-  (e, _) <- elAttr' "button" (M.singleton "type" "div") $ text s
-  return $ (domEvent Click e)
+button' :: MS m => String -> EC -> m EButtonAction
+button' s x = do
+  (e, _) <- elAttr' "button" (M.singleton "type" "input") $ text s
+  dragE <- wrapDomEvent (_el_element e) (onEventName Dragstart) J.preventDefault
+  performEvent_ $ return () <$ dragE
+  return . merge . fromList $ [PromoteButton :=> const (pprint x) <$> domEvent Click e, DeleteButton :=> const s <$> dragE]
+
 -- expression elements -----------------------------------------
 extrabuttons :: MS m => m [ES String]
 extrabuttons = mapM (\c -> fmap (const c) <$> button c) ["(" ,"(λ","x" ,"y" ,"z" ,"w" ,"n" ,"m" ,"l" ,"." ,")"] 
 
--- make a button firing an expression
-makeButton :: MS m => String -> EC -> m (ES String)
-makeButton k v = do
-    fmap (pprint . fst) <$> fmap (v ,) <$> button k
+
+data ButtonAction a where
+    PromoteButton :: ButtonAction String
+    DeleteButton :: ButtonAction String
+
+type EButtonAction  = ES (DMap ButtonAction Identity)
+deriveGCompare ''ButtonAction
+deriveGEq ''ButtonAction
+
+promote :: ES String -> EButtonAction
+promote x = merge . fromList $ [PromoteButton :=> x]
+
 --
---
-buttonsW :: (MonadWidget Spider m) => DS ButtonsDefs -> m (ES String)
+buttonsW :: (MonadWidget Spider m) => DS ButtonsDefs -> m EButtonAction
 buttonsW buttonsDef = divClass "standard" $ do 
-    
     keys <- extrabuttons
-    e :: ES String <- mapMorph dyn (fmap leftmost . mapM (uncurry makeButton)) buttonsDef          
-    return . leftmost $ e : keys
+    e  <- mapMorph dyn (fmap leftmost . mapM (uncurry button')) buttonsDef          
+    return . leftmost $ e : map promote keys
 
 ----------------- the expression field widget ---------------
 --
@@ -171,7 +182,7 @@ main = mainWidget . void $ do
 
     rec buttons <- buttonsW buttonsDef 
 
-        (expression :: DS String, substitute :: DS Bool)  <- expressionW  buttons upEC
+        (expression :: DS String, substitute :: DS Bool)  <- expressionW  (pick PromoteButton buttons) upEC
         
         -- horrible :-/ ---
         bdefsAndExpr :: DS ReductionInput <- do
@@ -185,8 +196,11 @@ main = mainWidget . void $ do
                 upEC = pick NewEdit reductionE
 
         redType <- holdDyn Normal $ pick ChangeTactic reductionE
-
-        buttonsDef :: DS ButtonsDefs  <- foldDyn (flip (++) . return) boot newButton
+        let     processButton :: Either String Button  -> ButtonsDefs -> ButtonsDefs
+                processButton (Right x) = flip (++) [x]
+                processButton (Left x) = filter ((/=x). fst)
+        alertEvent id (pick DeleteButton buttons)
+        buttonsDef :: DS ButtonsDefs  <- foldDyn processButton boot $ leftmost [Right <$> newButton,Left <$> pick DeleteButton buttons]
 
     footer
 {-
