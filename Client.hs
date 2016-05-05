@@ -1,6 +1,6 @@
 
 {-# LANGUAGE RecursiveDo,StandaloneDeriving, NoMonomorphismRestriction, TupleSections, FlexibleContexts,ScopedTypeVariables, ConstraintKinds, TemplateHaskell #-}
-{-# LANGUAGE GADTs#-}
+{-# LANGUAGE GADTs #-}
 import Data.Dependent.Map (DMap, DSum( (:=>) ) , fromList)
 import Data.GADT.Compare.TH
 import Reflex hiding (combineDyn)
@@ -16,86 +16,14 @@ import Control.Monad
 import Control.Lens
 import Data.List
 import Data.Maybe
-import qualified GHCJS.DOM.HTMLInputElement as J
-import qualified GHCJS.DOM.Element as J
 import qualified Data.Map as M
 import Data.Monoid
 import Data.Tuple
 import Data.Maybe.HT (toMaybe)
 import Data.Either
 import Data.GADT.Compare
-
------------------------ combinator -------------------
-(<$$) :: (Functor f, Functor g) => a -> f (g b) -> f (g a)
-(<$$) f = ((f <$) <$>)
-
------------------- radio checkboxes ----------------------
---
-radiocheckW :: (MonadHold t m,MonadWidget t m) => Eq a => a -> [(String,a)] -> m (Event t a)
-radiocheckW j xs = do
-    rec  es <- forM xs $ \(s,x) -> divClass "icheck" $ do
-                    let d = def & setValue .~ (fmap (== x) $ updated result)
-                    e <- fmap (const x) <$>  view checkbox_change <$> checkbox (x == j) d
-                    text s
-                    return e
-         result <- holdDyn j $ leftmost es
-    return $ updated result
-            
----------------- input widgets -----------------------------------------------
-insertAt :: Int -> String -> String -> (Int, String)
-insertAt n e s = let (u,v) = splitAt n s
-                  in (n + length e, u ++ e ++ v)
-
-attachSelectionStart :: MonadWidget t m => TextInput t -> Event t a -> m (Event t (Int, a))
-attachSelectionStart t ev = performEvent . ffor ev $ \e -> do
-  n <- J.getSelectionStart (t ^. textInput_element)
-  return (n,e)
-
-setCaret :: MonadWidget t m => TextInput t -> Event t Int -> m ()
-setCaret t e = performEvent_ . ffor e $ \n -> do
-  let el = t ^. textInput_element
-  J.setSelectionStart el n
-  J.setSelectionEnd el n
-
-inputW :: MonadWidget t m => m (Event t String)
-inputW = do
-    rec let send = ffilter (==13) $ view textInput_keypress input -- send signal firing on *return* key press
-        input <- textInput $ def & setValue .~ fmap (const "") send -- textInput with content reset on send
-    return $ tag (current $ view textInput_value input) send -- tag the send signal with the inputText value BEFORE resetting
-
-selInputW
-  :: MonadWidget t m =>
-     Event t String -> Event t String -> Event t b -> m (Dynamic t String)
-selInputW insertionE refreshE resetE = do
-  rec insertionLocE <- attachSelectionStart t insertionE
-      let newE = attachWith (\s (n,e) -> insertAt n e  s) (current (value t)) insertionLocE
-      setCaret t (fmap fst newE)
-      t <- textInput $ def & setValue .~ leftmost [fmap snd newE, fmap (const "") resetE, refreshE]
-  return $ view textInput_value  t
-
---------------- a link opening on a new tab ------
-linkNewTab :: MonadWidget t m => String -> String -> m ()
-linkNewTab href s = elAttr "a" ("href" =: href <> "target" =: "_blank") $ text s
-
--------  reflex missings --------------
-
-joinE :: (Reflex t, MonadHold t f) => Event t (Event t a) -> f (Event t a)
-joinE = fmap switch . hold never
-
-dynamicE  :: MonadWidget t m => (a -> m (Event t a1)) -> Dynamic t a -> m (Event t a1)
-dynamicE f d = mapDyn f d >>= dyn >>= joinE
-
---------- buggy namings, wait for Dynamic functor instance ---------------
-combineDynWith = Reflex.combineDyn
-combineDyn = combineDynWith (,)
-
----- select + fan combination, dismount a merge in one direction
-pick :: (GCompare k, Reflex t) => k a -> Event t (DMap k Identity) -> Event t a
-pick x r = select (fan r) x
-
----------------------------------------------------
------------------- End of libs---------------------
----------------------------------------------------
+import Missing
+import Widgets
 
 
 ------------ noisy type and constraint renaming ---------
@@ -192,16 +120,15 @@ boot = [
     ("PLUS",plus var_names)
     ] 
 
+
 --------------------- group button widget --------------------------
-{-
 button' :: MonadWidget t m => String -> m (Event t ())
 button' s = do
-  (e, _) <- elAttr' "button" (Map.singleton "type" "button") $ text s
-  return $ domEvent Click e
--}
+  (e, _) <- elAttr' "button" (M.singleton "type" "div") $ text s
+  return $ (domEvent Click e)
 -- expression elements -----------------------------------------
 extrabuttons :: MS m => m [ES String]
-extrabuttons = mapM (\c -> c <$$ button c) ["(" ,"(λ","x" ,"y" ,"z" ,"w" ,"n" ,"m" ,"l" ,"." ,")"] 
+extrabuttons = mapM (\c -> fmap (const c) <$> button c) ["(" ,"(λ","x" ,"y" ,"z" ,"w" ,"n" ,"m" ,"l" ,"." ,")"] 
 
 -- make a button firing an expression
 makeButton :: MS m => String -> EC -> m (ES String)
@@ -213,7 +140,7 @@ buttonsW :: (MonadWidget Spider m) => DS ButtonsDefs -> m (ES String)
 buttonsW buttonsDef = divClass "standard" $ do 
     
     keys <- extrabuttons
-    e :: ES String <- dynamicE (fmap leftmost . mapM (uncurry makeButton)) buttonsDef          
+    e :: ES String <- mapMorph dyn (fmap leftmost . mapM (uncurry makeButton)) buttonsDef          
     return . leftmost $ e : keys
 
 ----------------- the expression field widget ---------------
@@ -252,7 +179,7 @@ main = mainWidget . void $ do
               f <- combineDynWith ReductionInput redType bf
               combineDynWith ($) f expression
             
-        reductionE :: ES (DMap ReductionE Identity) <- dynamicE reductionW bdefsAndExpr 
+        reductionE :: ES (DMap ReductionE Identity) <- mapMorph dyn reductionW bdefsAndExpr 
         
         let     newButton = pick NewButton reductionE
                 upEC = pick NewEdit reductionE
