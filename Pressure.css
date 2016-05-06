@@ -1,0 +1,11 @@
+.area 
+      { 
+        border:3px solid black;
+        margin:1em;
+        margin-top:2em;        
+        margin-bottom:2em;
+        padding:4em;
+        display:inline-block;
+        border-radius: 2em;
+       }
+.code {font-size:0.7em}
