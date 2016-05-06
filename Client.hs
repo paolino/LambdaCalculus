@@ -122,18 +122,27 @@ boot = [
     ("PLUS",plus var_names)
     ] 
 
+divButton s = fst <$>  (elAttr' "div" (M.fromList [("class","button"),("type","button"),("draggable","true")]) $ text s)
 
 --------------------- group button widget --------------------------
 button' :: MS m => String -> EC -> m EButtonAction
 button' s x = do
-  (e, _) <- elAttr' "button" (M.singleton "type" "input") $ text s
-  dragE <- wrapDomEvent (_el_element e) (onEventName Dragstart) J.preventDefault
-  performEvent_ $ return () <$ dragE
-  return . merge . fromList $ [PromoteButton :=> const (pprint x) <$> domEvent Click e, DeleteButton :=> const s <$> dragE]
+  e <- divButton s
+  mapM (
+  --dragE <- wrapDomEvent (_el_element e) (onEventName Drag) J.preventDefault
+  --performEvent_ $ return () <$ dragE
+  {-
+  dragEnd <- wrapDomEvent (_el_element e) (onEventName Dragend) J.preventDefault
+  performEvent_ $ return () <$ dragEnd
+  -}
+  --putDebugLnE (domEvent Drag e) (const "Drag")
+  putDebugLnE (domEvent ragE) (const "Drag")
+  putDebugLnE (domEvent Dragstart e) (const "Dragstart")
+  return . merge . fromList $ [] -- PromoteButton :=> const (pprint x) <$> domEvent Click e] --, DeleteButton :=> const s <$> dragEnd]
 
 -- expression elements -----------------------------------------
 extrabuttons :: MS m => m [ES String]
-extrabuttons = mapM (\c -> fmap (const c) <$> button c) ["(" ,"(λ","x" ,"y" ,"z" ,"w" ,"n" ,"m" ,"l" ,"." ,")"] 
+extrabuttons = mapM (\c -> (fmap (const c) . domEvent Click) <$> divButton c) ["(" ,"(λ","x" ,"y" ,"z" ,"w" ,"n" ,"m" ,"l" ,"." ,")"] 
 
 
 data ButtonAction a where
@@ -199,7 +208,6 @@ main = mainWidget . void $ do
         let     processButton :: Either String Button  -> ButtonsDefs -> ButtonsDefs
                 processButton (Right x) = flip (++) [x]
                 processButton (Left x) = filter ((/=x). fst)
-        alertEvent id (pick DeleteButton buttons)
         buttonsDef :: DS ButtonsDefs  <- foldDyn processButton boot $ leftmost [Right <$> newButton,Left <$> pick DeleteButton buttons]
 
     footer
