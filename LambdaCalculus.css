@@ -1,0 +1,98 @@
+body {font-size:1.2em;background-color:#fff3f3}
+.standard {margin:0.1em;}
+.add {margin:0.1em}
+.control {margin:0.1em}
+.edit {background-color:#fff4ff;
+       margin:0.1em;
+       border-radius: 0.2em;
+       padding:0.5em;
+       border:0.1em solid #aaa
+       }
+.title {
+    color:blueviolet;
+    font-size: 0.8em;
+       display: inline-block;
+       margin-right:1em
+}
+button {
+       border-radius:0.4em;
+       padding: 10px;
+       margin-left:0.1em;
+       min-width:4em;
+       border:0.05em outset #ccc;
+       background-color: white;
+}
+checkbox {background-color: white}
+.source {;
+       font-size:0.5em
+       }
+.head {background-color:#fff6ff;
+       color:white;
+       margin:0.1em;
+       border-radius: 0.2em;
+       padding:0.1em;
+       padding-left:1em;
+       border:1px solid #aaa
+
+       }
+.standard {background-color:transparent;
+       color:white;
+       margin:0.1em;
+      padding:0.1em;
+       padding-top:0.5em;
+                   padding-bottom:0.5em;
+
+
+       }
+.expression input{
+       font-size:1.1em;
+       width: 100%;
+       
+}
+.clear button{
+             margin-left: 1em;
+             margin-bottom: 1em;
+             padding:0.3em;
+  
+             color:black;
+      
+}
+a{
+   
+       color:#669
+       
+}
+.tooltip {
+    color: #666;
+    text-align: center;
+    border-radius: 6px;
+    padding: 5px 0;
+    font-size:0.7em;
+    margin-left:0.5em;
+}
+
+.newbutton {padding:0.3em; 
+       background-color:grey;
+       opacity:0.6;
+       border-radius:0.3em;
+       margin-left:0.1em;
+       margin:0.1em;
+       border-radius: 0.3em;
+       padding:0.5em;
+       border:0.1em inset white
+}
+.usenames {
+            display: inline;
+             margin-left:1em;
+}
+.clear{display:inline}
+input {border-radius:0.2em;
+       border: 0.1px solid #aaa;
+       padding:0.1em;
+       }
+.usenames input {background-color: white;}
+.up button{padding:0em;margin-left:1em;font-size:0.6em;padding-top:0.4em}
+.steps {font-size:0.9em}
+.reduction_choice{display:flex;font-size:0.7em; color:#555}
+.icheck{margin-left:1em}
+.title {float:left}
