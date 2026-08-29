@@ -2,7 +2,8 @@
 module Lambda where
 
 import Data.List (nub, delete)
-import Control.Monad.Reader (runReader, local, asks, Reader, MonadReader,join)
+import Control.Monad.Reader (runReader, local, asks, Reader, MonadReader)
+import Control.Monad (join)
 import Control.Lens (makeLenses, over, view, ASetter')
 import Control.Arrow ((&&&))
 import Control.Applicative ((<|>))

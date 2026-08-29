@@ -1,0 +1,17 @@
+packages: .
+
+if arch(wasm32)
+  -- Required for TemplateHaskell. When using wasm32-wasi-cabal from
+  -- ghc-wasm-meta, this is superseded by the global cabal.config, but set
+  -- it explicitly for non-nix / ghcup builds too.
+  shared: True
+
+package aeson
+  flags: -ordered-keymap
+
+package ram
+  ghc-options: -optc-D_WASI_EMULATED_MMAN -optl-lwasi-emulated-mman
+  hsc2hs-options: --cflag=-D_WASI_EMULATED_MMAN --lflag=-lwasi-emulated-mman
+
+package crypton
+  ghc-options: -optc-D_WASI_EMULATED_MMAN -optc-DARGON2_NO_THREADS -optl-lwasi-emulated-mman

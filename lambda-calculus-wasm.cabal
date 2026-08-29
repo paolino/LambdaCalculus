@@ -1,0 +1,41 @@
+cabal-version: 3.0
+name: lambda-calculus-wasm
+version: 0.2.0.0
+synopsis: Lambda calculus reducer, browser client (GHC wasm backend + Reflex)
+license: MIT
+license-file: LICENSE
+author: Paolo Veronelli
+maintainer: paolo.veronelli@gmail.com
+build-type: Simple
+
+executable lambda-calculus-wasm
+  main-is: Main.hs
+  hs-source-dirs: app, src
+  default-language: Haskell2010
+  default-extensions: RecursiveDo NoMonomorphismRestriction FlexibleContexts
+  other-modules:
+    App
+    Lambda
+    Missing
+    Parser
+    PPrint
+    Style
+    Widgets
+  build-depends:
+    , base
+    , containers
+    , dependent-map
+    , dependent-sum       ^>=0.7
+    , dependent-sum-template
+    , ghcjs-dom          ==0.9.*
+    , jsaddle
+    , jsaddle-wasm
+    , lens
+    , mtl
+    , parsec
+    , reflex
+    , reflex-dom-core
+    , text
+    , utility-ht
+  ghc-options: -Wall -Wno-name-shadowing -Wno-unused-imports -Wno-unused-matches
+  ghc-options: -no-hs-main -optl-mexec-model=reactor "-optl-Wl,--export=hs_start"
