@@ -17,7 +17,7 @@ import Lambda
 import Parser hiding (value)
 import PPrint (Record, pprintdb, pprint)
 import Control.Monad (forM_, forM, void)
-import Control.Lens
+import Control.Lens hiding ((#))
 import Data.Char (toUpper)
 import Data.List (nub)
 import qualified Data.Map as M
@@ -113,6 +113,29 @@ boot = [
     ]
 
 
+----------------- ready-made example expressions ----------------
+--
+-- Full compound expressions (unlike the boot buttons above, which are a
+-- single named term each) built directly as Expr Char so they never touch
+-- the parser. Kept to terms that are known to terminate under Normal
+-- reduction -- self-application (omega) is deliberately excluded, since
+-- betas forces its infinite step list eagerly and would hang the tab.
+examples :: [(String, EC)]
+examples =
+    [ ("0 + 0", plus var_names # zero var_names # zero var_names)
+    , ("succ 0", suc var_names # zero var_names)
+    , ("1 + 1", plus var_names # (suc var_names # zero var_names) # (suc var_names # zero var_names))
+    , ("true and false", and_ var_names # true var_names # false var_names)
+    , ("false or false", or_ var_names # false var_names # false var_names)
+    , ("id true", id_ var_names # true var_names)
+    ]
+
+examplesW :: MonadWidget t m => m (Event t String)
+examplesW = divClass "edit" $ do
+    divClass "title" $ text "Examples"
+    es <- forM examples $ \(k, v) -> fmap (const (pprint v)) <$> button (T.pack k)
+    return $ leftmost es
+
 -- expression elements -----------------------------------------
 extrabuttons :: MonadWidget t m => m [Event t String]
 extrabuttons = mapM (\c -> fmap (const c) <$> button (T.pack c)) ["(" ,"(λ","x" ,"y" ,"z" ,"w" ,"n" ,"m" ,"l" ,"." ,")"]
@@ -132,15 +155,15 @@ buttonsW buttonsDef = divClass "standard" $ do
 
 ----------------- the expression field widget ---------------
 --
-expressionW :: MonadWidget t m => Event t String -> Event t EC -> m (Dynamic t String,  Dynamic t Bool)
-expressionW buttons picked = divClass "edit" $ do
+expressionW :: MonadWidget t m => Event t String -> Event t EC -> Event t String -> m (Dynamic t String,  Dynamic t Bool)
+expressionW buttons picked example = divClass "edit" $ do
     divClass "title" $ text "Expression"
     c <- divClass "usenames" $ do
         c <- checkbox False def
         elClass "span" "tooltip" $ text "substitute names"
         return c
     b <- divClass "clear" $ button "clear"
-    (,view checkbox_value c) <$> divClass "expression" (selInputW buttons (fmap pprint picked) b)
+    (,view checkbox_value c) <$> divClass "expression" (selInputW buttons (leftmost [fmap pprint picked, example]) b)
 
 
 ----------------- a dumb footer ---------------------------
@@ -158,7 +181,9 @@ app = void $ do
 
     rec buttons <- buttonsW buttonsDef
 
-        (expression, substitute)  <- expressionW  buttons upEC
+        exampleClicked <- examplesW
+
+        (expression, substitute)  <- expressionW  buttons upEC exampleClicked
 
         -- Dynamic has a real Functor/Applicative instance now, so this is
         -- plain zipDynWith instead of the old app's monadic combineDynWith
