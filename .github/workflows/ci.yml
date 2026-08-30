@@ -20,4 +20,5 @@ jobs:
         with:
           cachix-auth-token: "${{ secrets.CACHIX_AUTH_TOKEN }}"
       - name: Run native conformance
-        run: nix-shell --pure -p 'haskellPackages.ghcWithPackages (p: [ p.lens ])' --run './test/run-conformance'
+        run: |
+          nix-shell --pure -p 'haskellPackages.ghcWithPackages (p: [ p.lens ])' --run './test/run-conformance'

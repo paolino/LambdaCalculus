@@ -19,5 +19,5 @@ Final behavior commit trailer: `Tasks: T001, T002, T003, T004, T005`.
 
 ## S2 — Forward CI syntax correction
 
-- [ ] T006 Encode the native conformance command as valid workflow YAML and
+- [x] T006 Encode the native conformance command as valid workflow YAML and
   observe a real GitHub Actions job pass.
