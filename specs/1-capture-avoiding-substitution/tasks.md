@@ -24,5 +24,5 @@ Final behavior commit trailer: `Tasks: T001, T002, T003, T004, T005`.
 
 ## S3 — Flake-backed Nix path
 
-- [ ] T007 Make the native command resolve nixpkgs without a channel-backed
+- [x] T007 Make the native command resolve nixpkgs without a channel-backed
   `NIX_PATH`, then observe the real GitHub Actions job pass.
