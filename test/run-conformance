@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+root=$(cd "$(dirname "$0")/.." && pwd)
+cd "$root"
+
+tmp=$(mktemp -d "${TMPDIR:-/tmp}/run-conformance.XXXXXX")
+trap 'rm -rf -- "$tmp"' EXIT
+
+ghc -O0 -isrc -outputdir "$tmp" -o "$tmp/conformance" \
+    test/Conformance.hs
+"$tmp/conformance" "$@"
