@@ -53,3 +53,12 @@ because its Nix expression contains `p:`. S2 changes only the workflow scalar
 encoding. Its RED witness is `actionlint` on pushed commit `df8dfec`; its GREEN
 requires `actionlint`, the unchanged native gate, and a real GitHub Actions job
 to pass. Reducer and conformance semantics are frozen from S1.
+
+## Forward slice S3 — flake-backed Nix path
+
+The corrected workflow created job `99246692004`, proving the YAML wiring, but
+the live runner has no channel-backed `NIX_PATH`; legacy `nix-shell -p` could
+not import `<nixpkgs>`. S3 changes only the workflow command so `nix-shell`
+resolves nixpkgs through the installed flake registry. Its local boundary gate
+must run with `NIX_PATH` unset, while reducer and conformance semantics remain
+frozen. Final acceptance requires the next GitHub Actions job to pass.

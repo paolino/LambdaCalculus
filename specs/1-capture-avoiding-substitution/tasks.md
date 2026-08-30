@@ -20,4 +20,9 @@ Final behavior commit trailer: `Tasks: T001, T002, T003, T004, T005`.
 ## S2 — Forward CI syntax correction
 
 - [x] T006 Encode the native conformance command as valid workflow YAML and
-  observe a real GitHub Actions job pass.
+  observe GitHub Actions create the native conformance job.
+
+## S3 — Flake-backed Nix path
+
+- [ ] T007 Make the native command resolve nixpkgs without a channel-backed
+  `NIX_PATH`, then observe the real GitHub Actions job pass.
