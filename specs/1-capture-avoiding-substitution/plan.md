@@ -44,3 +44,12 @@ remain unpushed provenance and are squashed after independent audit.
 GitHub Actions is the only remote boundary. Local acceptance proves workflow
 wiring statically and the command dynamically; final readiness also requires
 the PR check result.
+
+## Forward slice S2 — workflow syntax correction
+
+The first pushed implementation reached GitHub Actions but the workflow parser
+created no job: the native command was encoded as an invalid YAML plain scalar
+because its Nix expression contains `p:`. S2 changes only the workflow scalar
+encoding. Its RED witness is `actionlint` on pushed commit `df8dfec`; its GREEN
+requires `actionlint`, the unchanged native gate, and a real GitHub Actions job
+to pass. Reducer and conformance semantics are frozen from S1.
