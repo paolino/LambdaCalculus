@@ -2,7 +2,7 @@
 module Lambda where
 
 import Data.List (nub, delete)
-import Control.Monad.Reader (runReader, local, asks, Reader, MonadReader)
+import Control.Monad.State (evalState, get, modify, put, State, MonadState)
 import Control.Monad (join)
 import Control.Lens (makeLenses, over, view, ASetter')
 import Control.Arrow ((&&&))
@@ -41,12 +41,12 @@ freevars (T x) = [x]
 freevars (x :\ t) = filter (/= x) $ freevars t
 freevars (e :# e') = freevars e ++ freevars e'
 
--- computational environment, serving fresh renaming via Reader interface
-newtype Freshes a b = Freshes (Reader [a] b) deriving (Functor, Applicative, Monad, MonadReader [a])
+-- computational environment, serving fresh renaming via State
+newtype Freshes a b = Freshes (State [a] b) deriving (Functor, Applicative, Monad, MonadState [a])
 
 -- run, given a list of fresh names
 withFreshes :: [a] -> Freshes a b -> b
-withFreshes xs (Freshes r) = runReader r xs
+withFreshes xs (Freshes r) = evalState r xs
 
 -- (==) is noisy
 eq :: Eq a => a -> a -> Bool
@@ -69,13 +69,24 @@ captures (T x) (Replace (eq x -> True) r _)  = return r -- replace
 captures v@(T _) _ = return v -- keep old
 captures l@(x :\ _) (Replace (eq x -> True) _ _)  = return l -- the introduction cancels the replacement
 captures (x :\ t) r = do
-        p <- asks $ head . filter (not . (`elem` dontuse r)) . (x:)  -- throw away free variables in t, hostinate alpha 
-        (\.) p <$> captures (alphasub p x t) r -- actual alpha transform
+        names <- get
+        let p = head $ filter (not . (`elem` avoided)) (x:names)
+        modify (filter (/= p))
+        (\.) p <$> captures (alphasub p x t) r
+    where
+        avoided = nub $ dontuse r ++ used t
+        used (T y) = [y]
+        used (y :\ u) = y : used u
+        used (u :# v) = used u ++ used v
 captures (t :# s) r = (#) <$> captures t r <*> captures s r -- let captures through both
 
 data Tactic = Aggressive | Mild | Normal deriving Eq
 
-application x t = captures t . replace x 
+application x t y = do
+        saved <- get
+        result <- captures t (replace x y)
+        put saved
+        return result
 
 -- single reduction step, hunting and collapsing  x \. y :# z pattern (lambda application)
 reduction :: Eq a => Tactic -> Expr a -> Freshes a (Expr a)
